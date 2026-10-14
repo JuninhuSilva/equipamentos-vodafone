@@ -1306,7 +1306,19 @@ async function iniciar() {
   renderLista();
   irPara('registrar');
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service worker', e));
+    // updateViaCache 'none': procura sempre a versão nova do sw.js (sem cache)
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      reg.update();
+      // sempre que a app volta ao ecrã, verifica se há atualização
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update(); });
+    }).catch((e) => console.warn('Service worker', e));
+    // quando a versão nova assume o controlo, recarrega uma vez (se não houver nada a meio)
+    let recarregou = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (recarregou || estado.enviando || cam.ativo) return;
+      recarregou = true;
+      location.reload();
+    });
   }
 }
 iniciar();

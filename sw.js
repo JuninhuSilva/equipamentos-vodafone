@@ -6,7 +6,7 @@
    Quando mudar algum ficheiro da app, aumente a VERSAO abaixo
    para os telemóveis descarregarem a versão nova.
    ========================================================= */
-const VERSAO = 'eqv-v4';
+const VERSAO = 'eqv-v5';
 
 const FICHEIROS = [
   './',
@@ -42,7 +42,7 @@ self.addEventListener('fetch', (e) => {
 
   // Rede primeiro (para apanhar atualizações), cache se estiver sem internet
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-store' })   // ignora a cache do navegador: vai sempre buscar a versão do GitHub
       .then((resp) => {
         const copia = resp.clone();
         caches.open(VERSAO).then((c) => c.put(e.request, copia));
