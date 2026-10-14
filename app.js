@@ -60,6 +60,7 @@ const NOME_GRUPO = 'Grupo do supervisor'; // só para mostrar na pré-visualiza�
    - só letras, números e hífen (links/textos → ignorado).
    - ignorar: códigos que começam por estes textos são sempre ignorados. */
 const FILTRO_CODIGO = {
+  ativo: false,        // DESLIGADO: lê o código que estiver na linha vermelha, seja qual for
   tamanhoMin: 10,
   tamanhoMax: 30,
   ignorar: []
@@ -568,11 +569,13 @@ function recortarMira() {
   // o vídeo está em "object-fit: cover": calcula a escala e o deslocamento
   const escala = Math.max(caixaV.width / vw, caixaV.height / vh);
   const dx = (caixaV.width - vw * escala) / 2, dy = (caixaV.height - vh * escala) / 2;
-  // pouca folga: só o que está dentro da mira fina é lido
-  const folgaX = 0.05, folgaY = 0.12;
-  let x = (caixaM.left - caixaV.left - dx) / escala, y = (caixaM.top - caixaV.top - dy) / escala;
-  let w = caixaM.width / escala, h = caixaM.height / escala;
-  x -= w * folgaX; y -= h * folgaY; w *= 1 + folgaX * 2; h *= 1 + folgaY * 2;
+  // só uma faixa estreita à volta da LINHA VERMELHA é lida:
+  // o código que a linha atravessa é o único que a app vê
+  const folgaX = 0.05, FAIXA = 0.4;            // FAIXA = altura lida, em fração da moldura
+  let w = caixaM.width / escala, h = (caixaM.height * FAIXA) / escala;
+  const centroY = (caixaM.top + caixaM.height / 2 - caixaV.top - dy) / escala;
+  let x = (caixaM.left - caixaV.left - dx) / escala, y = centroY - h / 2;
+  x -= w * folgaX; w *= 1 + folgaX * 2;
   x = Math.max(0, x); y = Math.max(0, y); w = Math.min(vw - x, w); h = Math.min(vh - y, h);
   // sempre ~1100 px de largura: aumenta recortes pequenos (o ZXing lê melhor)
   const red = 1100 / w;
@@ -607,6 +610,7 @@ async function detetarCodigos() {
 function codigoAceite(codigo) {
   const n = normalizar(codigo);
   const f = FILTRO_CODIGO;
+  if (!f.ativo) return n.length >= 3;          // sem filtro: aceita o que estiver na linha
   if (n.length < f.tamanhoMin || n.length > f.tamanhoMax) return false;
   if (!/^[A-Z0-9\-:.\/]+$/.test(n)) return false;                   // links e textos com outros símbolos
   if (/^\d+$/.test(n) && [8, 13].includes(n.length)) return false;     // EAN-8 e EAN-13 (código do produto)
