@@ -6,7 +6,7 @@
    Quando mudar algum ficheiro da app, aumente a VERSAO abaixo
    para os telemóveis descarregarem a versão nova.
    ========================================================= */
-const VERSAO = 'eqv-v2';
+const VERSAO = 'eqv-v3';
 
 const FICHEIROS = [
   './',

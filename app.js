@@ -46,21 +46,29 @@ const FOTO_QUALIDADE = 0.7;   // qualidade do JPEG (0 a 1)
 const FOTO_LADO_MAX = 1280;   // maior lado da foto, em píxeis (menos = mais leve)
 const NOME_GRUPO = 'Grupo do supervisor'; // só para mostrar na pré-visualização
 
-/* FILTRO DE CÓDIGOS — as caixas têm vários códigos de barras (EAN do
-   produto, MAC, etc.). A app só aceita os que passam nestas regras;
-   os outros são ignorados sem parar a leitura.
-   - exigirLetrasENumeros: o código do equipamento tem letras E números,
-     por isso códigos só com números (ex.: EAN 5601234567890) são ignorados.
-   - so: se souber o padrão exato do S/N, ponha aqui uma regra.
-     Ex.: /^VF[A-Z0-9]{10,12}$/  (começa por VF e tem 10 a 12 letras/números)
+/* FILTRO DE CÓDIGOS — as caixas têm vários códigos de barras. Pelos
+   exemplos reais:
+     Box    (amigo KSTB2281): lê-se o ATVHWID  06235000998911 (14 números)
+     Router                 : lê-se o IMEI/MAC C0F6C24A39D4  (12 letras/números)
+   e os que NÃO interessam são:
+     EAN do produto 8 809218 901213 (13 números), 80001520 (8 números),
+     Part No. 63101 (5 números).
+   Regras usadas (não há um padrão único, por isso é por exclusão):
+   - códigos EAN/UPC nem são procurados pelo leitor;
+   - menos de 10 caracteres → ignorado (Part No., 80001520…);
+   - só números com 8, 12 ou 13 dígitos (formato de EAN/UPC) → ignorado;
+   - só letras, números e hífen (links/textos → ignorado).
    - ignorar: códigos que começam por estes textos são sempre ignorados. */
 const FILTRO_CODIGO = {
-  tamanhoMin: 6,
+  tamanhoMin: 10,
   tamanhoMax: 30,
-  exigirLetrasENumeros: true,
-  so: null,
   ignorar: []
 };
+
+/* FOTO DO EQUIPAMENTO INTEIRO — depois de ler o código, a app apita,
+   pede para afastar o telemóvel e tira a foto sozinha passados estes
+   segundos. 0 = foto no próprio momento da leitura (só a etiqueta). */
+const FOTO_ATRASO_S = 3;
 
 
 /* =====================================================================
@@ -527,7 +535,7 @@ async function prepararLeitor() {
   // Leitor nativo, quando existe
   if ('BarcodeDetector' in window) {
     try {
-      const desejados = ['code_128', 'code_39', 'code_93', 'codabar', 'itf', 'ean_13', 'ean_8', 'qr_code', 'data_matrix'];
+      const desejados = ['code_128', 'code_39', 'code_93', 'codabar', 'itf', 'qr_code', 'data_matrix'];
       const suportados = await window.BarcodeDetector.getSupportedFormats();
       const formatos = desejados.filter((f) => suportados.includes(f));
       if (formatos.length) { cam.detetor = new window.BarcodeDetector({ formats: formatos }); return; }
@@ -538,7 +546,7 @@ async function prepararLeitor() {
   const dicas = new Map();
   dicas.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
     Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.CODE_93, Z.BarcodeFormat.CODABAR,
-    Z.BarcodeFormat.ITF, Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8,
+    Z.BarcodeFormat.ITF,
     Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.DATA_MATRIX
   ]);
   dicas.set(Z.DecodeHintType.TRY_HARDER, true);
@@ -562,7 +570,8 @@ function recortarMira() {
   let w = caixaM.width / escala, h = caixaM.height / escala;
   x -= w * folgaX; y -= h * folgaY; w *= 1 + folgaX * 2; h *= 1 + folgaY * 2;
   x = Math.max(0, x); y = Math.max(0, y); w = Math.min(vw - x, w); h = Math.min(vh - y, h);
-  const red = Math.min(1, 1100 / w);
+  // sempre ~1100 px de largura: aumenta recortes pequenos (o ZXing lê melhor)
+  const red = 1100 / w;
   const c = cam.cRecorte;
   c.width = Math.round(w * red); c.height = Math.round(h * red);
   c.getContext('2d', { willReadFrequently: true }).drawImage(v, x, y, w, h, 0, 0, c.width, c.height);
@@ -582,8 +591,11 @@ async function detetarCodigos() {
   }
   try {
     const Z = window.ZXing;
-    const bmp = new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c)));
-    return [cam.zxing.decodeWithState(bmp).getText().trim()];
+    // alterna entre os dois "binarizadores" do ZXing: cada um lê melhor certas etiquetas
+    cam.alterna = !cam.alterna;
+    const lum = new Z.HTMLCanvasElementLuminanceSource(c);
+    const bin = cam.alterna ? new Z.HybridBinarizer(lum) : new Z.GlobalHistogramBinarizer(lum);
+    return [cam.zxing.decodeWithState(new Z.BinaryBitmap(bin)).getText().trim()];
   } catch (e) { return []; } // nenhum código neste quadro
 }
 
@@ -593,8 +605,7 @@ function codigoAceite(codigo) {
   const f = FILTRO_CODIGO;
   if (n.length < f.tamanhoMin || n.length > f.tamanhoMax) return false;
   if (!/^[A-Z0-9\-]+$/.test(n)) return false;                       // URLs, textos com espaços, etc.
-  if (f.exigirLetrasENumeros && !(/[A-Z]/.test(n) && /\d/.test(n))) return false;
-  if (f.so && !f.so.test(n)) return false;
+  if (/^\d+$/.test(n) && [8, 12, 13].includes(n.length)) return false;  // EAN-8, UPC, EAN-13
   if (f.ignorar.some((p) => n.startsWith(normalizar(p)))) return false;
   return true;
 }
@@ -647,86 +658,91 @@ function desfazerUltimo(id) {
 /* Mostra/esconde os controlos normais da câmara enquanto se confirma */
 function modoConfirmacao(ligado) {
   $('cam-confirmar').hidden = !ligado;
+  document.querySelector('.camera-mira').style.visibility = ligado ? 'hidden' : ''; // ecrã limpo para enquadrar a foto
   $('cam-status').hidden = ligado;
   $('cam-tipo').hidden = ligado;
   $('cam-acoes').hidden = ligado;
   if (ligado) $('cam-ultimo').hidden = true;
 }
 
-/* Passo 1 (só se a câmara viu vários códigos): escolher o certo */
-function mostrarEscolha(codigos, foto) {
-  cam.pendente = { foto, opcoes: codigos };
+/* Depois de ler: apita, pede para afastar e tira a foto sozinha.
+   Nenhum toque é obrigatório; "Cancelar" e "Foto já" são opcionais. */
+function mostrarContagem() {
+  const p = cam.pendente;
+  const st = STATUS[p.status];
   $('cam-confirmar').innerHTML =
-    '<span class="conf-rotulo">A câmara viu ' + codigos.length + ' códigos. Toque no do equipamento:</span>' +
-    '<div class="conf-lista">' + codigos.map((c, i) =>
-      '<button type="button" class="conf-opcao" data-acao="escolher" data-i="' + i + '">' + esc(c) + '</button>').join('') + '</div>' +
-    '<button type="button" class="conf-cancelar" data-acao="cancelar">Cancelar</button>';
-  modoConfirmacao(true);
-  msgCamera('Escolha o código certo');
-}
-
-/* Passo 2: confirmar (ou cancelar) o código lido, já com a foto tirada */
-function mostrarConfirmacao(codigo, foto) {
-  const p = cam.pendente && cam.pendente.codigo === codigo ? cam.pendente : null;
-  cam.pendente = {
-    codigo, foto,
-    tipo: p ? p.tipo : (inferirTipo(codigo) || estado.tipo),
-    status: p ? p.status : estado.status
-  };
-  const st = STATUS[cam.pendente.status];
-  $('cam-confirmar').innerHTML =
-    '<div class="conf-topo"><img src="' + urlFoto(foto) + '" alt="">' +
-      '<div class="item-info"><span class="conf-rotulo">Código lido</span>' +
-      '<span class="conf-codigo">' + esc(codigo) + '</span>' +
+    '<div class="conf-topo"><span class="conf-num" aria-hidden="true">' + p.falta + '</span>' +
+      '<div class="item-info"><span class="conf-rotulo">Lido. Afaste para a foto do equipamento</span>' +
+      '<span class="conf-codigo">' + esc(p.codigo) + '</span>' +
       '<div class="item-tags">' +
-        '<button type="button" class="pill pill-tipo" data-acao="p-tipo" aria-label="Tipo: ' + TIPOS[cam.pendente.tipo] + '. Toque para mudar">' + TIPOS[cam.pendente.tipo] + '</button>' +
+        '<button type="button" class="pill pill-tipo" data-acao="p-tipo" aria-label="Tipo: ' + TIPOS[p.tipo] + '. Toque para mudar">' + TIPOS[p.tipo] + '</button>' +
         '<button type="button" class="pill ' + st.classe + '" data-acao="p-status" aria-label="Status: ' + st.nome + '. Toque para mudar">' + st.nome + '</button>' +
       '</div></div></div>' +
     '<div class="conf-botoes">' +
       '<button type="button" class="conf-cancelar" data-acao="cancelar">Cancelar</button>' +
-      '<button type="button" class="conf-ok" data-acao="confirmar">Confirmar</button>' +
+      '<button type="button" class="conf-ok" data-acao="foto">Foto já</button>' +
     '</div>';
   modoConfirmacao(true);
-  msgCamera('Confira o código antes de adicionar');
+  msgCamera('Afaste o telemóvel: foto em ' + p.falta + '…');
 }
 
-function confirmarPendente() {
+function iniciarContagem(codigo) {
+  cam.pendente = { codigo, tipo: inferirTipo(codigo) || estado.tipo, status: estado.status, falta: FOTO_ATRASO_S, timer: null };
+  if (FOTO_ATRASO_S <= 0) return tirarFotoPendente();
+  mostrarContagem();
+  const passo = () => {
+    const p = cam.pendente;
+    if (!p || p.codigo !== codigo) return;
+    p.falta -= 1;
+    if (p.falta <= 0) return tirarFotoPendente();
+    mostrarContagem();
+    p.timer = setTimeout(passo, 1000);
+  };
+  cam.pendente.timer = setTimeout(passo, 1000);
+}
+
+async function tirarFotoPendente() {
   const p = cam.pendente;
-  if (!p || !p.codigo) return;
+  if (!p || p.aTirar) return;
+  p.aTirar = true;
+  clearTimeout(p.timer);
+  const foto = await capturarFoto();          // quadro inteiro da câmara
+  if (cam.pendente !== p) return;              // cancelado entretanto
   cam.pendente = null;
   modoConfirmacao(false);
-  const it = adicionarItem(p.codigo, p.foto, p.tipo, p.status);
+  const it = adicionarItem(p.codigo, foto, p.tipo, p.status);
   cam.ultimoId = it.id;
   cam.lidos += 1;
+  bip();
   const mira = document.querySelector('.camera-mira');
   mira.classList.add('lido'); setTimeout(() => mira.classList.remove('lido'), 600);
   $('cam-contador').textContent = plural(cam.lidos, 'lido', 'lidos') + ' nesta sessão';
-  msgCamera('Adicionado! Aponte para o próximo');
+  msgCamera('Adicionado! Aponte para o próximo código');
   mostrarUltimo(it);
   cam.ultimoCodigo = p.codigo; cam.ultimoQuando = Date.now();
-  cam.pausaAte = Date.now() + 1200;
+  cam.pausaAte = Date.now() + 1500;
 }
 
 function cancelarPendente() {
   const p = cam.pendente;
+  if (p) clearTimeout(p.timer);
   cam.pendente = null;
   modoConfirmacao(false);
-  // o código cancelado não volta a ser perguntado enquanto a câmara estiver aberta
+  // o código cancelado não volta a ser lido enquanto a câmara estiver aberta
   if (p && p.codigo) cam.ignorados.add(normalizar(p.codigo));
-  if (p && p.opcoes) p.opcoes.forEach((c) => cam.ignorados.add(normalizar(c)));
   msgCamera('Cancelado. Aponte só para o código do equipamento');
   cam.pausaAte = Date.now() + 700;
 }
 
 $('cam-confirmar').addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-acao]');
-  if (!b || !cam.pendente) return;
-  const a = b.dataset.acao, p = cam.pendente;
-  if (a === 'confirmar') confirmarPendente();
+  const p = cam.pendente;
+  if (!b || !p) return;
+  const a = b.dataset.acao;
   if (a === 'cancelar') cancelarPendente();
-  if (a === 'escolher') { const cod = p.opcoes[Number(b.dataset.i)]; cam.pendente = null; mostrarConfirmacao(cod, p.foto); }
-  if (a === 'p-tipo') { p.tipo = ORDEM_TIPOS[(ORDEM_TIPOS.indexOf(p.tipo) + 1) % ORDEM_TIPOS.length]; mostrarConfirmacao(p.codigo, p.foto); }
-  if (a === 'p-status') { p.status = ORDEM_STATUS[(ORDEM_STATUS.indexOf(p.status) + 1) % ORDEM_STATUS.length]; mostrarConfirmacao(p.codigo, p.foto); }
+  if (a === 'foto') tirarFotoPendente();
+  if (a === 'p-tipo') { p.tipo = ORDEM_TIPOS[(ORDEM_TIPOS.indexOf(p.tipo) + 1) % ORDEM_TIPOS.length]; mostrarContagem(); }
+  if (a === 'p-status') { p.status = ORDEM_STATUS[(ORDEM_STATUS.indexOf(p.status) + 1) % ORDEM_STATUS.length]; mostrarContagem(); }
 });
 
 /* Recebe os códigos vistos num quadro e decide o que fazer */
@@ -739,7 +755,7 @@ async function processarLeitura(codigos, manual) {
     validos = validos.filter(codigoAceite);
     if (!validos.length && rejeitados.length) {
       msgCamera('Ignorado (não é código de equipamento): ' + rejeitados[0]);
-      cam.pausaAte = agora + 600;
+      cam.pausaAte = agora + 400;
       return;
     }
   }
@@ -749,11 +765,9 @@ async function processarLeitura(codigos, manual) {
     if (repetidos.length) { msgCamera('Já está na lista: ' + repetidos[0]); cam.pausaAte = agora + 1500; }
     return;
   }
-  cam.pausaAte = Infinity;                      // pára de ler até Confirmar/Cancelar
-  const foto = await capturarFoto();          // foto tirada no mesmo instante da leitura
+  cam.pausaAte = Infinity;                      // pára de ler até tirar a foto
   bip();
-  if (validos.length > 1) mostrarEscolha(validos, foto);
-  else mostrarConfirmacao(validos[0], foto);
+  iniciarContagem(validos[0]);
 }
 
 async function ciclo() {
@@ -815,6 +829,7 @@ async function abrirCamera() {
 function fecharCamera() {
   cam.ativo = false;
   clearTimeout(cam.timer);
+  if (cam.pendente) clearTimeout(cam.pendente.timer);
   cam.pendente = null; cam.ignorados = new Set();
   modoConfirmacao(false);
   if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop());
