@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Equipamentos Vodafone</title>
+
+<!-- PWA / iPhone: abrir em ecrã inteiro a partir do ecrã principal -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#E60000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Equipamentos">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ CABEÇALHO ============ -->
+  <header id="header">
+    <div class="header-row">
+      <button type="button" id="btn-voltar" class="header-back" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        <span>Histórico</span>
+      </button>
+      <button type="button" id="btn-config" class="header-icon" aria-label="Configurações do Telegram">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+    <h1 id="titulo">Equipamentos Vodafone</h1>
+  </header>
+
+  <!-- ============ CONTEÚDO ============ -->
+  <main id="conteudo">
+
+    <!-- ---------- ABA REGISTRAR ---------- -->
+    <section id="aba-registrar" class="aba">
+      <div class="campo">
+        <label for="wo" class="rotulo">WO</label>
+        <div class="input-box">
+          <input id="wo" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Cole a WO aqui">
+          <button type="button" id="btn-colar" class="btn-mini">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
+            <span>Colar</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="campo">
+        <span class="rotulo" id="rot-status">Status</span>
+        <div class="seg seg-status" role="group" aria-labelledby="rot-status" id="seg-status"></div>
+      </div>
+
+      <div class="campo">
+        <span class="rotulo" id="rot-tipo">Tipo de equipamento</span>
+        <div class="seg seg-tipo" role="group" aria-labelledby="rot-tipo" id="seg-tipo"></div>
+      </div>
+
+      <button type="button" id="btn-escanear" class="btn-escanear">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <span>Escanear equipamento</span>
+      </button>
+
+      <div class="lista-cab">
+        <span class="lista-titulo">Nesta WO</span>
+        <span class="lista-contagem" id="contagem">0 equipamentos</span>
+      </div>
+      <div id="lista-wo" class="lista"></div>
+      <p class="dica" id="dica-lista" hidden>Toque no tipo ou no status de um item para o mudar.</p>
+    </section>
+
+    <!-- ---------- ABA HISTÓRICO ---------- -->
+    <section id="aba-historico" class="aba" hidden>
+      <div id="hist-lista-view">
+        <div id="hist-resumo">
+          <div class="seg seg-periodo" role="group" aria-label="Período" id="seg-periodo"></div>
+          <div class="resumo" id="resumo"></div>
+        </div>
+        <div class="input-box busca-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5C5C5C" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+          <label for="busca" class="sr-only">Pesquisar</label>
+          <input id="busca" type="search" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Pesquisar equipamento, WO ou data">
+          <button type="button" id="btn-limpar-busca" class="btn-icone" aria-label="Limpar pesquisa" hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <p class="resultado-info" id="resultado-info" hidden></p>
+        <div id="hist-resultados" class="lista"></div>
+        <button type="button" id="btn-mais" class="btn-secundario" hidden>Mostrar mais</button>
+      </div>
+      <div id="hist-detalhe-view" hidden></div>
+    </section>
+  </main>
+
+  <!-- ============ BARRA DE ENVIO ============ -->
+  <div id="barra-envio">
+    <span class="aviso-envio" id="aviso-envio">Preencha a WO e escaneie pelo menos um equipamento.</span>
+    <button type="button" id="btn-enviar" class="btn-enviar" disabled>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>
+      <span>Enviar pro Telegram</span>
+    </button>
+  </div>
+
+  <!-- ============ ABAS ============ -->
+  <nav id="abas" aria-label="Abas">
+    <button type="button" class="aba-btn ativa" data-aba="registrar" aria-current="page">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg>
+      <span>Registrar</span>
+    </button>
+    <button type="button" class="aba-btn" data-aba="historico">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>Histórico</span>
+    </button>
+  </nav>
+
+  <!-- ============ CÂMARA (leitura contínua) ============ -->
+  <div id="camera" class="camera" hidden>
+    <video id="video" playsinline muted autoplay></video>
+    <div class="camera-mira" aria-hidden="true"><span class="mira-linha"></span></div>
+    <div class="camera-topo">
+      <span class="camera-contador" id="cam-contador">0 lidos nesta sessão</span>
+      <button type="button" id="btn-lanterna" class="btn-cam-icone" aria-label="Lanterna" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h10v5l-3 4v11h-4V11L7 7z"/></svg>
+      </button>
+    </div>
+    <div class="camera-msg" id="cam-msg" aria-live="polite">Aponte para o código de barras</div>
+    <div class="camera-painel">
+      <div id="cam-ultimo" class="cam-ultimo" hidden></div>
+      <div class="seg seg-cam" id="cam-status" role="group" aria-label="Status"></div>
+      <div class="seg seg-cam" id="cam-tipo" role="group" aria-label="Tipo"></div>
+      <div class="camera-acoes">
+        <button type="button" id="btn-digitar" class="btn-cam-sec">Digitar código</button>
+        <button type="button" id="btn-concluir" class="btn-cam-ok">Concluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DIGITAR CÓDIGO MANUALMENTE ============ -->
+  <div id="folha-manual" class="fundo-modal" hidden>
+    <form class="folha" id="form-manual" role="dialog" aria-modal="true" aria-labelledby="manual-tit">
+      <h2 id="manual-tit" class="folha-titulo">Digitar código</h2>
+      <p class="folha-texto">A foto será tirada da câmara no momento em que confirmar.</p>
+      <label for="codigo-manual" class="rotulo">Código do equipamento</label>
+      <div class="input-box"><input id="codigo-manual" type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Ex.: VF3X9K2210054"></div>
+      <button type="submit" class="btn-primario">Adicionar</button>
+      <button type="button" class="btn-secundario" id="btn-manual-cancelar">Cancelar</button>
+    </form>
+  </div>
+
+  <!-- ============ PRÉ-VISUALIZAÇÃO DO ENVIO ============ -->
+  <div id="folha-preview" class="fundo-modal" hidden>
+    <div class="folha folha-alta" role="dialog" aria-modal="true" aria-labelledby="pv-tit">
+      <div class="folha-cab">
+        <span class="pega" aria-hidden="true"></span>
+        <div class="pv-grupo">
+          <span class="pv-avatar" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>
+          </span>
+          <span class="pv-textos">
+            <span id="pv-tit" class="pv-titulo">Pré-visualização</span>
+            <span class="pv-sub" id="pv-sub">Para o grupo do supervisor</span>
+          </span>
+        </div>
+      </div>
+      <div class="pv-chat" id="pv-chat"></div>
+      <div class="folha-rodape">
+        <div class="pv-erro" id="pv-erro" role="alert" hidden></div>
+        <div class="pv-progresso" id="pv-progresso" aria-live="polite" hidden></div>
+        <button type="button" id="btn-confirmar" class="btn-primario">Confirmar envio</button>
+        <button type="button" id="btn-pv-voltar" class="btn-secundario">Voltar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SUCESSO ============ -->
+  <div id="tela-sucesso" class="tela-sucesso" role="dialog" aria-modal="true" aria-labelledby="ok-tit" hidden>
+    <span class="ok-circulo" aria-hidden="true">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </span>
+    <h2 id="ok-tit">Enviado!</h2>
+    <p id="ok-texto"></p>
+    <div class="ok-acoes">
+      <button type="button" id="btn-nova-wo" class="btn-primario">Registrar nova WO</button>
+      <button type="button" id="btn-ver-hist" class="btn-secundario">Ver no histórico</button>
+    </div>
+  </div>
+
+  <!-- ============ CONFIGURAÇÕES DO TELEGRAM ============ -->
+  <div id="folha-config" class="fundo-modal" hidden>
+    <form class="folha folha-alta folha-rolavel" id="form-config" role="dialog" aria-modal="true" aria-labelledby="cfg-tit">
+      <h2 id="cfg-tit" class="folha-titulo">Telegram</h2>
+      <p class="folha-texto" id="cfg-aviso">Estes dados ficam guardados só neste telemóvel.</p>
+
+      <label for="cfg-token" class="rotulo">Token do bot</label>
+      <div class="input-box"><input id="cfg-token" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="123456789:AAH..."></div>
+      <p class="folha-ajuda">No Telegram, fale com @BotFather, envie /newbot e copie o token que ele devolve.</p>
+
+      <label for="cfg-chat" class="rotulo">Chat ID do grupo</label>
+      <div class="input-box"><input id="cfg-chat" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="-100..."></div>
+      <p class="folha-ajuda">Adicione o bot ao grupo, escreva /start no grupo e toque em "Procurar grupos".</p>
+      <button type="button" id="btn-descobrir" class="btn-secundario">Procurar grupos</button>
+      <div id="cfg-grupos" class="cfg-grupos"></div>
+
+      <div class="pv-erro" id="cfg-msg" role="status" hidden></div>
+      <button type="button" id="btn-testar" class="btn-secundario">Enviar mensagem de teste</button>
+      <button type="submit" class="btn-primario">Guardar</button>
+      <button type="button" id="btn-cfg-fechar" class="btn-secundario">Fechar</button>
+    </form>
+  </div>
+
+  <!-- ============ VER FOTO EM TAMANHO GRANDE ============ -->
+  <div id="visor" class="visor" hidden>
+    <img id="visor-img" alt="">
+    <button type="button" id="btn-visor-fechar" class="btn-visor" aria-label="Fechar foto">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+
+  <!-- ============ AVISOS RÁPIDOS (toast) ============ -->
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+    <span id="toast-texto"></span>
+    <button type="button" id="toast-acao" class="toast-acao" hidden>Desfazer</button>
+  </div>
+</div>
+
+<!-- Leitor de códigos de barras (ZXing) — usado quando o navegador não tem leitor nativo (caso do iPhone) -->
+<script src="vendor/zxing.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
