@@ -129,10 +129,12 @@
     </div>
     <div class="camera-msg" id="cam-msg" aria-live="polite">Aponte para o código de barras</div>
     <div class="camera-painel">
+      <!-- Confirmação da leitura (ou escolha, se a câmara vir vários códigos) -->
+      <div id="cam-confirmar" class="cam-confirmar" role="dialog" aria-live="assertive" hidden></div>
       <div id="cam-ultimo" class="cam-ultimo" hidden></div>
       <div class="seg seg-cam" id="cam-status" role="group" aria-label="Status"></div>
       <div class="seg seg-cam" id="cam-tipo" role="group" aria-label="Tipo"></div>
-      <div class="camera-acoes">
+      <div class="camera-acoes" id="cam-acoes">
         <button type="button" id="btn-digitar" class="btn-cam-sec">Digitar código</button>
         <button type="button" id="btn-concluir" class="btn-cam-ok">Concluir</button>
       </div>
