@@ -54,7 +54,7 @@ const NOME_GRUPO = 'Grupo do supervisor'; // só para mostrar na pré-visualiza�
      EAN do produto 8 809218 901213 (13 números), 80001520 (8 números),
      Part No. 63101 (5 números).
    Regras usadas (não há um padrão único, por isso é por exclusão):
-   - códigos EAN/UPC nem são procurados pelo leitor;
+   - EAN do produto (8 ou 13 números) → ignorado;
    - menos de 10 caracteres → ignorado (Part No., 80001520…);
    - só números com 8, 12 ou 13 dígitos (formato de EAN/UPC) → ignorado;
    - só letras, números e hífen (links/textos → ignorado).
@@ -69,6 +69,10 @@ const FILTRO_CODIGO = {
    pede para afastar o telemóvel e tira a foto sozinha passados estes
    segundos. 0 = foto no próprio momento da leitura (só a etiqueta). */
 const FOTO_ATRASO_S = 0;
+
+/* Se a app ignorar um código mas continuar a apontar para ele durante
+   este tempo (milissegundos), aceita-o na mesma. */
+const SEGURAR_MS = 1500;
 
 
 /* =====================================================================
@@ -535,7 +539,7 @@ async function prepararLeitor() {
   // Leitor nativo, quando existe
   if ('BarcodeDetector' in window) {
     try {
-      const desejados = ['code_128', 'code_39', 'code_93', 'codabar', 'itf', 'qr_code', 'data_matrix'];
+      const desejados = ['code_128', 'code_39', 'code_93', 'codabar', 'itf', 'ean_13', 'ean_8', 'qr_code', 'data_matrix'];
       const suportados = await window.BarcodeDetector.getSupportedFormats();
       const formatos = desejados.filter((f) => suportados.includes(f));
       if (formatos.length) { cam.detetor = new window.BarcodeDetector({ formats: formatos }); return; }
@@ -546,7 +550,7 @@ async function prepararLeitor() {
   const dicas = new Map();
   dicas.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
     Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.CODE_93, Z.BarcodeFormat.CODABAR,
-    Z.BarcodeFormat.ITF,
+    Z.BarcodeFormat.ITF, Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8,
     Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.DATA_MATRIX
   ]);
   dicas.set(Z.DecodeHintType.TRY_HARDER, true);
@@ -604,8 +608,8 @@ function codigoAceite(codigo) {
   const n = normalizar(codigo);
   const f = FILTRO_CODIGO;
   if (n.length < f.tamanhoMin || n.length > f.tamanhoMax) return false;
-  if (!/^[A-Z0-9\-]+$/.test(n)) return false;                       // URLs, textos com espaços, etc.
-  if (/^\d+$/.test(n) && [8, 12, 13].includes(n.length)) return false;  // EAN-8, UPC, EAN-13
+  if (!/^[A-Z0-9\-:.\/]+$/.test(n)) return false;                   // links e textos com outros símbolos
+  if (/^\d+$/.test(n) && [8, 13].includes(n.length)) return false;     // EAN-8 e EAN-13 (código do produto)
   if (f.ignorar.some((p) => n.startsWith(normalizar(p)))) return false;
   return true;
 }
@@ -754,9 +758,25 @@ async function processarLeitura(codigos, manual) {
     const rejeitados = validos.filter((c) => !codigoAceite(c));
     validos = validos.filter(codigoAceite);
     if (!validos.length && rejeitados.length) {
-      msgCamera('Ignorado (não é código de equipamento): ' + rejeitados[0]);
-      cam.pausaAte = agora + 400;
-      return;
+      /* "Segurar para aceitar": se continuar a apontar para o mesmo código
+         ignorado durante SEGURAR_MS, a app aceita-o na mesma. */
+      const c = rejeitados[0];
+      const ins = cam.insiste;
+      if (!ins || ins.codigo !== c || agora - ins.ultimo > 700) {
+        cam.insiste = { codigo: c, desde: agora, ultimo: agora };
+      } else {
+        ins.ultimo = agora;
+      }
+      const falta = SEGURAR_MS - (agora - cam.insiste.desde);
+      if (falta > 0) {
+        msgCamera('Ignorado: ' + c + '. Segure aqui para usar este código');
+        cam.pausaAte = agora + 120;
+        return;
+      }
+      cam.insiste = null;
+      validos = [c];                                // o técnico insistiu: aceita
+    } else {
+      cam.insiste = null;
     }
   }
   const repetidos = validos.filter(naLista);
