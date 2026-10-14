@@ -68,7 +68,7 @@ const FILTRO_CODIGO = {
 /* FOTO DO EQUIPAMENTO INTEIRO — depois de ler o código, a app apita,
    pede para afastar o telemóvel e tira a foto sozinha passados estes
    segundos. 0 = foto no próprio momento da leitura (só a etiqueta). */
-const FOTO_ATRASO_S = 3;
+const FOTO_ATRASO_S = 0;
 
 
 /* =====================================================================
@@ -766,7 +766,7 @@ async function processarLeitura(codigos, manual) {
     return;
   }
   cam.pausaAte = Infinity;                      // pára de ler até tirar a foto
-  bip();
+  if (FOTO_ATRASO_S > 0) bip();                // com foto imediata, o bip toca só uma vez
   iniciarContagem(validos[0]);
 }
 
