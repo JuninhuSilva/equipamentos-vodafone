@@ -6,7 +6,7 @@
    Quando mudar algum ficheiro da app, aumente a VERSAO abaixo
    para os telemóveis descarregarem a versão nova.
    ========================================================= */
-const VERSAO = 'eqv-v7';
+const VERSAO = 'eqv-v8';
 
 const FICHEIROS = [
   './',
@@ -14,6 +14,8 @@ const FICHEIROS = [
   './styles.css',
   './app.js',
   './vendor/zxing.min.js',
+  './vendor/zxing-wasm-reader.js',
+  './vendor/zxing_reader.wasm',
   './manifest.webmanifest',
   './icons/apple-touch-icon.png',
   './icons/icon-192.png',

@@ -546,7 +546,23 @@ async function prepararLeitor() {
       if (formatos.length) { cam.detetor = new window.BarcodeDetector({ formats: formatos }); return; }
     } catch (e) { /* cai para ZXing */ }
   }
-  // ZXing (biblioteca incluída em vendor/zxing.min.js)
+  // Leitor principal no iPhone: zxing-wasm (motor zxing-cpp, o mesmo tipo de
+  // leitor das apps nativas — mais rápido e mais certeiro que o ZXing em JS).
+  // Ficheiros em vendor/zxing-wasm-reader.js e vendor/zxing_reader.wasm (funciona offline).
+  if (window.ZXingWASM && !cam.wasm) {
+    try {
+      await window.ZXingWASM.prepareZXingModule({
+        overrides: {
+          locateFile: (ficheiro, prefixo) => ficheiro.endsWith('.wasm')
+            ? new URL('vendor/zxing_reader.wasm', location.href).href
+            : prefixo + ficheiro
+        },
+        fireImmediately: true
+      });
+      cam.wasm = true;
+    } catch (e) { console.warn('zxing-wasm indisponível, uso o ZXing em JS', e); }
+  }
+  // Reserva: ZXing em JS (vendor/zxing.min.js)
   const Z = window.ZXing;
   const dicas = new Map();
   dicas.set(Z.DecodeHintType.POSSIBLE_FORMATS, [
@@ -571,14 +587,14 @@ function recortarMira() {
   const dx = (caixaV.width - vw * escala) / 2, dy = (caixaV.height - vh * escala) / 2;
   // só uma faixa estreita à volta da LINHA VERMELHA é lida:
   // o código que a linha atravessa é o único que a app vê
-  const folgaX = 0.05, FAIXA = 0.4;            // FAIXA = altura lida, em fração da moldura
+  const folgaX = 0.05, FAIXA = 0.5;            // FAIXA = altura lida, em fração da moldura
   let w = caixaM.width / escala, h = (caixaM.height * FAIXA) / escala;
   const centroY = (caixaM.top + caixaM.height / 2 - caixaV.top - dy) / escala;
   let x = (caixaM.left - caixaV.left - dx) / escala, y = centroY - h / 2;
   x -= w * folgaX; w *= 1 + folgaX * 2;
   x = Math.max(0, x); y = Math.max(0, y); w = Math.min(vw - x, w); h = Math.min(vh - y, h);
   // sempre ~1100 px de largura: aumenta recortes pequenos (o ZXing lê melhor)
-  const red = 1100 / w;
+  const red = Math.max(1, 1100 / w);           // nunca reduz: códigos densos precisam de todos os píxeis
   const c = cam.cRecorte;
   c.width = Math.round(w * red); c.height = Math.round(h * red);
   c.getContext('2d', { willReadFrequently: true }).drawImage(v, x, y, w, h, 0, 0, c.width, c.height);
@@ -587,13 +603,37 @@ function recortarMira() {
 
 /* Devolve TODOS os códigos vistos na mira (o leitor nativo vê vários;
    o ZXing do iPhone devolve um de cada vez) */
+/* Código lido com caracteres invisíveis/estranhos (ex.: o "⊠" no meio)
+   = leitura falhada: é descartado e a app continua a tentar */
+function limparCodigo(t) {
+  const s = String(t || '').trim();
+  if (!s || /[\u0000-\u001F\u007F-\u009F\uFFFD]/.test(s)) return null;
+  return s;
+}
+
 async function detetarCodigos() {
+  return (await detetarBruto()).map(limparCodigo).filter(Boolean);
+}
+
+async function detetarBruto() {
   const c = recortarMira();
   if (!c) return [];
   if (cam.detetor) {
     try {
       const r = await cam.detetor.detect(c);
       return Array.from(new Set(r.map((x) => String(x.rawValue || '').trim()).filter(Boolean)));
+    } catch (e) { return []; }
+  }
+  if (cam.wasm) {
+    try {
+      const img = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height);
+      const r = await window.ZXingWASM.readBarcodes(img, {
+        formats: ['Code128', 'Code39', 'Code93', 'Codabar', 'ITF', 'EAN-13', 'EAN-8', 'DataBar', 'DataBarExpanded'],
+        tryHarder: true, tryRotate: false, tryInvert: true, tryDownscale: true,
+        maxNumberOfSymbols: 1,
+        minLineCount: 3              // 3 linhas de leitura têm de concordar: evita leituras erradas
+      });
+      return r.filter((x) => x.isValid).map((x) => x.text);
     } catch (e) { return []; }
   }
   try {
@@ -799,7 +839,16 @@ async function ciclo() {
   const v = $('video');
   if (!cam.pendente && Date.now() >= cam.pausaAte && v.readyState >= 2) {
     const cods = await detetarCodigos();
-    if (cods.length && cam.ativo && !cam.pendente) await processarLeitura(cods, false);
+    if (cods.length && cam.ativo && !cam.pendente) {
+      // só aceita quando o MESMO código é lido em 2 quadros seguidos (evita leituras erradas)
+      const agora = Date.now();
+      if (cam.candidato === cods[0] && agora - cam.candidatoT < 1000) {
+        cam.candidato = null;
+        await processarLeitura([cods[0]], false);
+      } else {
+        cam.candidato = cods[0]; cam.candidatoT = agora;
+      }
+    }
   }
   if (cam.ativo) cam.timer = setTimeout(ciclo, 110);
 }
